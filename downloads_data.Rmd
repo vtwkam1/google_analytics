@@ -3,15 +3,9 @@ title: "Google analytics"
 author: "Impact team"
 date: "`r Sys.Date()`"
 output: 
-    html_document:
-        toc: TRUE
-        toc_float: TRUE
-        code_download: TRUE
-        code_folding: "hide"
+    flexdashboard::flex_dashboard:
+        source_code: embed
 runtime: shiny
-params:
-    month_start: 2019-06
-    month_end: 2022-06
 ---
 
 ```{r setup, include=FALSE}
@@ -26,22 +20,14 @@ library(plotly)
 
 ```
 
-```{r, eval = FALSE}
-rmarkdown::render('downloads_data.Rmd',
-       output_file = paste0('./output/', params$file_regex, '_downloads_', Sys.Date(), '.html'),
-       params = list(month_start = "2019-06",
-                     month_end = "2022-06",
-                     product = "Quality improvement resource",
-                     file_regex = "quality-improvement-resource"
-                     )
-       )
+```{r, include = FALSE}
+# Specify time period GA data is available for
+month_start <- ym("2019-06")
+month_end <- ym("2022-06")
 ```
 
 
-```{r}
-month_start <- ym(params$month_start)
-month_end <- ym(params$month_end)
-
+```{r, include = FALSE}
 # Calculate number of months
 months_diff <- floor((month_start %--% month_end) / dmonths(1))
 
@@ -53,12 +39,15 @@ filename <- map(month_list, ~ sprintf("../quality_standard/download_analytics/HS
 ```
 
 
-```{r}
+```{r, include = FALSE}
 # Import data
 data <- filename %>% 
     set_names() %>% 
     map_dfr(read_csv, col_types = "ccd", .id = "filename")
+```
 
+
+```{r, include = FALSE}
 # Extract the date from the file name
 data <- data %>% 
     mutate(year_month = str_extract(filename, "(?<=Table_)\\d{4}-\\d{2}(?=.csv)") %>% ym(.)) %>% 
@@ -69,13 +58,7 @@ data <- data %>%
     select(year_month, everything())
 ```
 
-
-```{r, eval = FALSE}
-# Save master file
-write_csv(data, paste0("./output/all_downloads_", params$month_start, "_", params$month_end, ".csv"))
-```
-
-```{r}
+```{r, include = FALSE}
 # List of products with filename regex
 product_list <- list("QSSIT" = "((QS)|(quality-standard))-service-improvement-template",
                       "Baseline assessment tool (BAT)" = "baseline-assessment-tool",
@@ -84,83 +67,27 @@ product_list <- list("QSSIT" = "((QS)|(quality-standard))-service-improvement-te
 
 ```
 
+Sidebar {.sidebar}
+=====================================
 
-```{r}
-shinyApp(
-
-  ui = fluidPage(
-    selectInput("select_products", 
+```{r, echo = FALSE}
+selectInput("select_products", 
                 "Select products:",
                 choices = product_list,
-                multiple = TRUE),
-    verbatimTextOutput("input"),
-    dataTableOutput("downloads_table")
-  ),
-  
-  server = function(input, output) {
-    trial <- reactive({
-        data %>% 
-            filter(str_detect(file, regex(str_c(input$select_products, collapse = "|"), ignore_case = TRUE)))
-    })
-    
-    output$downloads_table = renderDataTable(trial())
-  },
-
-  options = list(height = 500)
-)
+                multiple = TRUE)
 ```
 
 
+Page 1
+=====================================
 
-<!-- ```{r} -->
-<!-- # Save -->
-<!-- # write_csv(selected, sprintf('./output/%s_%s_to_%s.csv', params$file_regex, params$month_start, params$month_end)) -->
+### Graph
 
-<!-- ``` -->
+```{r, echo = FALSE}
+trial <- reactive({
+        data %>% 
+            filter(str_detect(file, regex(str_c(input$select_products, collapse = "|"), ignore_case = TRUE)))
+    })
 
-
-<!-- ```{r} -->
-<!-- # Present raw data -->
-<!-- selected %>% -->
-<!--     datatable(., -->
-<!--           filter = "top", -->
-<!--           colnames = c("Month" = "year_month", -->
-<!--                        "Download page" = "page_path", -->
-<!--                        "File URL" = "file", -->
-<!--                        "Downloads" = "downloads"), -->
-<!--           rownames = FALSE, -->
-<!--           extensions = 'Buttons', -->
-<!--           options = list( -->
-<!--               dom = 'Bfrtip', -->
-<!--               buttons = c('csv') -->
-<!--   )) -->
-<!-- ``` -->
-<!-- # `r paste0("Monthly downloads of the ", params$product)` -->
-<!-- ```{r} -->
-<!-- total_downloads <- selected %>%  -->
-<!--     group_by(year_month) %>%  -->
-<!--     summarise(downloads = sum(downloads)) -->
-
-<!-- total_downloads %>%  -->
-<!--     mutate(year_month = zoo::as.yearmon(year_month)) %>%  -->
-<!--     rename("Month" = year_month, -->
-<!--            "Downloads" = downloads) %>%  -->
-<!--     kbl() %>%  -->
-<!--     kable_styling(bootstrap_options = c("striped", "hover")) -->
-<!-- ``` -->
-
-<!-- ```{r} -->
-<!-- fig <- total_downloads %>%  -->
-<!--     mutate(year_month = zoo::as.yearmon(year_month)) %>%  -->
-<!--     ggplot(aes(x = year_month, y = downloads)) + -->
-<!--     geom_line() + -->
-<!--     labs(x = "Month", -->
-<!--          y = "Downloads", -->
-<!--          title = paste0("Total monthly downloads of the ", params$product)) + -->
-<!--     scale_y_continuous(expand = c(0,0), -->
-<!--                        limits = c(0, NA)) -->
-
-
-<!-- fig %>% ggplotly() -->
-<!-- ``` -->
-
+renderDataTable(trial())
+```
