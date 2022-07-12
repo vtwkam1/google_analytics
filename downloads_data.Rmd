@@ -12,6 +12,7 @@ runtime: shiny
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(lubridate)
+library(fuzzyjoin)
 library(DT)
 library(kableExtra)
 library(zoo)
@@ -77,17 +78,55 @@ selectInput("select_products",
                 multiple = TRUE)
 ```
 
-
-Page 1
+Graph
 =====================================
 
-### Graph
+```{r, echo = FALSE}
+selected <- reactive({
+    selected <- data %>% 
+            filter(str_detect(file, regex(str_c(input$select_products, collapse = "|"), ignore_case = TRUE)))
+    
+    product_list_tbl <- tibble(product = names(product_list), regex = product_list)
+
+    selected %>% 
+        regex_inner_join(product_list_tbl,
+                         by = c(file = "regex"))
+    })
+```
+
+```{r, include = FALSE}
+
+selected <- data %>% 
+    filter(str_detect(file, regex(str_c(product_list, collapse = "|"), ignore_case = TRUE))) %>% 
+    select(year_month, everything())
+
+product_list_tbl <- tibble(product = names(product_list), regex = product_list)
+
+selected %>% 
+    regex_inner_join(product_list_tbl,
+                     by = c(file = "regex"))
+
+selected %>%
+    datatable(.,
+          filter = "top",
+          colnames = c("Month" = "year_month",
+                       "Download page" = "page_path",
+                       "File URL" = "file",
+                       "Downloads" = "downloads"),
+          rownames = FALSE,
+          extensions = 'Buttons',
+          options = list(
+              dom = 'Bfrtip',
+              buttons = c('csv')
+  ))
+
+```
+
+Raw data
+=====================================
+
+### Raw downloads data from all NICE webpages
 
 ```{r, echo = FALSE}
-trial <- reactive({
-        data %>% 
-            filter(str_detect(file, regex(str_c(input$select_products, collapse = "|"), ignore_case = TRUE)))
-    })
-
-renderDataTable(trial())
+renderDataTable(selected())
 ```
