@@ -62,7 +62,7 @@ data <- data %>%
 ```{r, include = FALSE}
 # List of products with filename regex
 product_list <- list("QSSIT" = "((QS)|(quality-standard))-service-improvement-template",
-                      "Baseline assessment tool (BAT)" = "baseline-assessment-tool",
+                      "Baseline assessment tool" = "baseline-assessment-tool",
                       "Resource planner" = "resource-planner"
 )
 
@@ -78,7 +78,7 @@ selectInput("select_products",
                 multiple = TRUE)
 ```
 
-Graph
+Monthly downloads
 =====================================
 
 ```{r, echo = FALSE}
@@ -90,43 +90,78 @@ selected <- reactive({
 
     selected %>% 
         regex_inner_join(product_list_tbl,
-                         by = c(file = "regex"))
+                         by = c(file = "regex")) %>% 
+        select(-regex) %>% 
+        mutate(product = as_factor(product))
     })
+
+monthly <- reactive({
+    selected() %>% 
+        group_by(product, year_month) %>% 
+        summarise(monthly_downloads = sum(downloads))
+})
 ```
 
-```{r, include = FALSE}
+Column {data-width = 600}
+-------------------------------------
 
-selected <- data %>% 
-    filter(str_detect(file, regex(str_c(product_list, collapse = "|"), ignore_case = TRUE))) %>% 
-    select(year_month, everything())
+### Graph of monthly downloads
 
-product_list_tbl <- tibble(product = names(product_list), regex = product_list)
+```{r, echo = FALSE}
+renderPlotly({
+    req(input$select_products)
+    
+    fig <- ggplot(data = monthly(),
+                  aes(x = year_month, y = monthly_downloads, colour = product)) +
+        geom_line() +
+        labs(x = "Month",
+             y = "Downloads")
+        scale_y_continuous(expand = c(0,0),
+                           limits = c(0, NA))
 
-selected %>% 
-    regex_inner_join(product_list_tbl,
-                     by = c(file = "regex"))
+    ggplotly(fig)
+})
+```
 
-selected %>%
-    datatable(.,
-          filter = "top",
-          colnames = c("Month" = "year_month",
-                       "Download page" = "page_path",
-                       "File URL" = "file",
-                       "Downloads" = "downloads"),
-          rownames = FALSE,
-          extensions = 'Buttons',
-          options = list(
-              dom = 'Bfrtip',
-              buttons = c('csv')
-  ))
+Column {data-width=400} 
+-------------------------------------
+
+### Table with monthly downloads
+
+```{r, echo = FALSE}
+renderDT(monthly(),
+         filter = "top",
+         extensions = "Scroller",
+         options = list(
+             scrollY = 400,
+             scroller = TRUE
+             ),
+         rownames = FALSE) 
+```
+
+
+Page downloaded from
+=====================================
+
+### Which pages are the products most frequently downloaded from?
+
+```{r}
 
 ```
+
 
 Raw data
 =====================================
 
-### Raw downloads data from all NICE webpages
+### Raw downloads data showing page downloaded from and file download URL
 
 ```{r, echo = FALSE}
-renderDataTable(selected())
+renderDT(selected(),
+         filter = "top",
+         extensions = "Scroller",
+         options = list(
+             scrollY = 500,
+             scroller = TRUE
+             ),
+         rownames = FALSE) 
 ```
