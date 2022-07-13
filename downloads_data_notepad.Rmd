@@ -1,11 +1,8 @@
 ---
-title: "Google analytics"
+title: "downloads_data_notepad"
 author: "Impact team"
 date: "`r Sys.Date()`"
-output: 
-    flexdashboard::flex_dashboard:
-        source_code: embed
-runtime: shiny
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
@@ -68,50 +65,40 @@ product_list <- list("QSSIT" = "((QS)|(quality-standard))-service-improvement-te
 
 ```
 
-Sidebar {.sidebar}
-=====================================
+
 
 ```{r, echo = FALSE}
-selectInput("select_products", 
-                "Select products:",
-                choices = product_list,
-                multiple = TRUE)
+input <- list()
+input$select_products <- product_list
 ```
 
-Monthly downloads
-=====================================
+
 
 ```{r, echo = FALSE}
-selected <- reactive({
-    selected <- data %>% 
+selected <- data %>% 
             filter(str_detect(file, regex(str_c(input$select_products, collapse = "|"), ignore_case = TRUE)))
     
-    product_list_tbl <- tibble(product = names(product_list), regex = product_list)
+    
+product_list_tbl <- tibble(product = names(product_list), regex = product_list)
 
-    selected %>% 
+selected <- selected %>% 
         regex_inner_join(product_list_tbl,
                          by = c(file = "regex")) %>% 
         select(-regex) %>% 
         mutate(product = as_factor(product))
-    })
 
-monthly <- reactive({
-    selected() %>% 
+monthly <- selected %>% 
         group_by(product, year_month) %>% 
         summarise(monthly_downloads = sum(downloads))
-})
+
 ```
 
-Column {data-width = 600}
--------------------------------------
+
 
 ### Graph of monthly downloads
 
 ```{r, echo = FALSE}
-renderPlotly({
-    req(input$select_products)
-    
-    fig <- ggplot(data = monthly(),
+fig <- ggplot(data = monthly,
                   aes(x = year_month, y = monthly_downloads, colour = product)) +
         geom_line() +
         labs(x = "Month",
@@ -119,78 +106,34 @@ renderPlotly({
         scale_y_continuous(expand = c(0,0),
                            limits = c(0, NA))
 
-    ggplotly(fig)
-})
+ggplotly(fig)
+
 ```
 
-Column {data-width=400} 
--------------------------------------
+
 
 ### Table with monthly downloads
 
 ```{r, echo = FALSE}
-renderDT(monthly(),
-         filter = "top",
-         extensions = "Scroller",
-         options = list(
-             scrollY = 400,
-             scroller = TRUE
-             ),
-         rownames = FALSE) 
+
 ```
 
 
-Page downloaded from
-=====================================
+
 
 ### Which pages are the products most frequently downloaded from?
 
-```{r, include = FALSE}
-download_page <- reactive({
-    selected() %>%
-        group_by(product) %>% 
-        mutate(top_page_path = fct_lump_prop(page_path, w = downloads, prop = 0.1)) %>% 
-        ungroup() %>% 
-        group_by(product, year_month, top_page_path) %>% 
-        summarise(monthly_downloads = sum(downloads))
-})
-```
-
-
-```{r, echo = FALSE}
-renderPlotly({
-    req(input$select_products)
-    
-    source_fig <- ggplot(data = download_page(),
-                  aes(x = year_month, y = monthly_downloads, colour = product, linetype = top_page_path)) +
-        geom_line() +
-        labs(x = "Month",
-             y = "Downloads")
-        scale_y_continuous(expand = c(0,0),
-                           limits = c(0, NA))
-
-    ggplotly(source_fig)
-})
-
-```
-
-### Table
-
-```{r, echo = FALSE}
-renderDT(download_page(),
-         filter = "top",
-         extensions = "Scroller",
-         options = list(
-             scrollY = 500,
-             scroller = TRUE
-             ),
-         rownames = FALSE) 
+```{r}
+selected %>%
+    group_by(product) %>% 
+    mutate(test = fct_lump_prop(page_path, w = downloads, prop = 0.1)) %>% 
+    ungroup() %>% 
+    group_by(product, year_month, test) %>% 
+    summarise(total = sum(downloads))
     
 ```
 
 
-Raw data
-=====================================
 
 ### Raw downloads data showing page downloaded from and file download URL
 
