@@ -131,10 +131,12 @@ Column {data-width=400}
 ```{r, echo = FALSE}
 renderDT(monthly(),
          filter = "top",
-         extensions = "Scroller",
+         extensions = c("Scroller", "Buttons"),
          options = list(
              scrollY = 400,
-             scroller = TRUE
+             scroller = TRUE,
+             dom = "Bfrtip",
+             buttons = c('copy', 'csv', 'excel')
              ),
          rownames = FALSE) 
 ```
@@ -179,10 +181,12 @@ renderPlotly({
 ```{r, echo = FALSE}
 renderDT(download_page(),
          filter = "top",
-         extensions = "Scroller",
+         extensions = c("Scroller", "Buttons"),
          options = list(
-             scrollY = 500,
-             scroller = TRUE
+             scrollY = 400,
+             scroller = TRUE,
+             dom = "Bfrtip",
+             buttons = c('copy', 'csv', 'excel')
              ),
          rownames = FALSE) 
     
@@ -197,10 +201,12 @@ Raw data
 ```{r, echo = FALSE}
 renderDT(selected(),
          filter = "top",
-         extensions = "Scroller",
+         extensions = c("Scroller", "Buttons"),
          options = list(
-             scrollY = 500,
-             scroller = TRUE
+             scrollY = 400,
+             scroller = TRUE,
+             dom = "Bfrtip",
+             buttons = c('copy', 'csv', 'excel')
              ),
          rownames = FALSE) 
 ```
