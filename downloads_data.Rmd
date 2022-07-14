@@ -14,11 +14,10 @@ library(tidyverse)
 library(lubridate)
 library(fuzzyjoin)
 library(DT)
-library(kableExtra)
-library(zoo)
+# library(kableExtra)
+# library(zoo)
 library(plotly)
-# library(reactable)
-
+library(reactable)
 ```
 
 ```{r, include = FALSE}
@@ -151,10 +150,8 @@ Page downloaded from
 download_page <- reactive({
     selected() %>%
         group_by(product) %>% 
-        mutate(top_page_path = fct_lump_prop(page_path, w = downloads, prop = 0.1)) %>% 
-        ungroup() %>% 
-        group_by(product, year_month, top_page_path) %>% 
-        summarise(monthly_downloads = sum(downloads))
+        mutate(downloaded_from = fct_lump_prop(page_path, w = downloads, prop = 0.05)) %>% 
+        ungroup()
 })
 ```
 
@@ -163,8 +160,13 @@ download_page <- reactive({
 renderPlotly({
     req(input$select_products)
     
-    source_fig <- ggplot(data = download_page(),
-                  aes(x = year_month, y = monthly_downloads, colour = product, linetype = top_page_path)) +
+    source_fig <- download_page() %>%
+        group_by(product, year_month, downloaded_from) %>%
+        summarise(monthly_downloads = sum(downloads)) %>%
+        ggplot(aes(x = year_month,
+                   y = monthly_downloads, 
+                   colour = product, 
+                   linetype = downloaded_from)) +
         geom_line() +
         labs(x = "Month",
              y = "Downloads")
@@ -177,19 +179,20 @@ renderPlotly({
 ```
 
 ### Table
-
 ```{r, echo = FALSE}
-renderDT(download_page(),
-         filter = "top",
-         extensions = c("Scroller", "Buttons"),
-         options = list(
-             scrollY = 400,
-             scroller = TRUE,
-             dom = "Bfrtip",
-             buttons = c('copy', 'csv', 'excel')
-             ),
-         rownames = FALSE) 
-    
+renderReactable({
+    download_page() %>%
+        select(-file) %>% 
+        reactable(.,
+                  filterable = TRUE,
+                  searchable = TRUE,
+                  groupBy = c("product", "year_month", "downloaded_from"),
+                  columns = list(
+                      downloads = colDef(aggregate = "sum")
+                      )
+                  )
+})
+
 ```
 
 
