@@ -1,5 +1,5 @@
 ---
-title: "Google analytics"
+title: "Product review: Google Analytics"
 author: "Impact team"
 date: "`r Sys.Date()`"
 output: 
@@ -35,7 +35,7 @@ months_diff <- floor((month_start %--% month_end) / dmonths(1))
 month_list <- month_start + months(0:months_diff)
 
 # Generate file names using months specified above
-filename <- map(month_list, ~ sprintf("../quality_standard/download_analytics/HSC dashboard - Engagement and implementation_All webpages_ links and downloads_Table_%s.csv", as.character(.x) %>% str_remove("-01$")))
+filename <- map(month_list, ~ sprintf("./download_analytics/HSC dashboard - Engagement and implementation_All webpages_ links and downloads_Table_%s.csv", as.character(.x) %>% str_remove("-01$")))
 ```
 
 
@@ -133,6 +133,7 @@ renderDT(monthly(),
          extensions = c("Scroller", "Buttons"),
          options = list(
              scrollY = 400,
+             scrollX = TRUE,
              scroller = TRUE,
              dom = "Bfrtip",
              buttons = c('copy', 'csv', 'excel')
@@ -202,11 +203,12 @@ Raw data
 ### Raw downloads data showing page downloaded from and file download URL
 
 ```{r, echo = FALSE}
-renderDT(selected(),
+renderDT(selected() %>% select(product, everything()),
          filter = "top",
          extensions = c("Scroller", "Buttons"),
          options = list(
              scrollY = 400,
+             scrollX = TRUE,
              scroller = TRUE,
              dom = "Bfrtip",
              buttons = c('copy', 'csv', 'excel')
