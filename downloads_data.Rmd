@@ -52,9 +52,7 @@ data <- filename %>%
 data <- data %>% 
     mutate(year_month = str_extract(filename, "(?<=Table_)\\d{4}-\\d{2}(?=.csv)") %>% ym(.)) %>% 
     select(-filename) %>%
-    rename(page_path = 'Page path',
-           file = File,
-           downloads = Downloads) %>% 
+    janitor::clean_names() %>% 
     select(year_month, everything())
 ```
 
@@ -114,9 +112,12 @@ renderPlotly({
                   aes(x = year_month, y = monthly_downloads, colour = product)) +
         geom_line() +
         labs(x = "Month",
-             y = "Downloads")
+             y = "Downloads") +
         scale_y_continuous(expand = c(0,0),
-                           limits = c(0, NA))
+                           limits = c(0, NA)) +
+        scale_x_date(date_breaks = "6 months",
+                     date_labels = "%b %Y")
+
 
     ggplotly(fig)
 })
@@ -147,6 +148,8 @@ Page downloaded from
 
 ### Which pages are the products most frequently downloaded from?
 
+All pages contributing less than 5% to the monthly download of a product are collapsed into "Other".
+
 ```{r, include = FALSE}
 download_page <- reactive({
     selected() %>%
@@ -155,7 +158,6 @@ download_page <- reactive({
         ungroup()
 })
 ```
-
 
 ```{r, echo = FALSE}
 renderPlotly({
@@ -170,9 +172,12 @@ renderPlotly({
                    linetype = downloaded_from)) +
         geom_line() +
         labs(x = "Month",
-             y = "Downloads")
+             y = "Downloads") +
         scale_y_continuous(expand = c(0,0),
-                           limits = c(0, NA))
+                           limits = c(0, NA)) +
+        scale_x_date(date_breaks = "6 months",
+                     date_labels = "%b %Y")
+
 
     ggplotly(source_fig)
 })
