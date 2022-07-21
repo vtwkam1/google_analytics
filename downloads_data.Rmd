@@ -35,32 +35,51 @@ months_diff <- floor((month_start %--% month_end) / dmonths(1))
 month_list <- month_start + months(0:months_diff)
 
 # Generate file names using months specified above
-filename <- map(month_list, ~ sprintf("./download_analytics/HSC dashboard - Engagement and implementation_All webpages_ links and downloads_Table_%s.csv", as.character(.x) %>% str_remove("-01$")))
+downloads_filename <- map(month_list, ~ sprintf("./download_analytics/HSC dashboard - Engagement and implementation_All webpages_ links and downloads_Table_%s.csv", as.character(.x) %>% str_remove("-01$")))
+
+views_filename <- map(month_list, ~ sprintf("./download_analytics/HSC dashboard - Engagement and implementation_All webpages_ links and downloads_Table_views_%s.csv", as.character(.x) %>% str_remove("-01$")))
 ```
 
 
 ```{r, include = FALSE}
 # Import data
-data <- filename %>% 
-    set_names() %>% 
-    map_dfr(read_csv, col_types = "ccd", .id = "filename")
+import_data <- function(filenames) {
+    filenames %>%
+        set_names() %>%
+        map_dfr(read_csv, col_types = "ccd", .id = "filename")
+}
+
+
+downloads_data <- import_data(downloads_filename)
+
+views_data <- import_data(views_filename)
+
 ```
 
 
 ```{r, include = FALSE}
 # Extract the date from the file name
-data <- data %>% 
-    mutate(year_month = str_extract(filename, "(?<=Table_)\\d{4}-\\d{2}(?=.csv)") %>% ym(.)) %>% 
-    select(-filename) %>%
-    janitor::clean_names() %>% 
-    select(year_month, everything())
+extract_date <- function(table, date_regex) {
+    table %>% 
+        mutate(year_month = str_extract(filename, date_regex) %>% ym(.)) %>% 
+        select(-filename) %>%
+        janitor::clean_names() %>%
+        select(year_month, everything())
+}
+
+downloads_data <- extract_date(downloads_data, "(?<=Table_)\\d{4}-\\d{2}(?=.csv)")
+
+views_data <- extract_date(views_data, "(?<=Table_views_)\\d{4}-\\d{2}(?=.csv)")
+
 ```
 
 ```{r, include = FALSE}
 # List of products with filename regex
 product_list <- list("QSSIT" = "((QS)|(quality-standard))-service-improvement-template",
                       "Baseline assessment tool" = "baseline-assessment-tool",
-                      "Resource planner" = "resource-planner"
+                      "Resource planner" = "resource-planner",
+                     "Resource impact template" = "resource-impact-template",
+                     "Resource impact report" = "resource-impact-report"
 )
 
 ```
