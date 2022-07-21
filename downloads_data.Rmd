@@ -5,6 +5,8 @@ date: "`r Sys.Date()`"
 output: 
     flexdashboard::flex_dashboard:
         source_code: embed
+        vertical_layout: scroll
+        orientation: rows
 runtime: shiny
 ---
 
@@ -84,8 +86,8 @@ product_list <- list("QSSIT" = "((QS)|(quality-standard))-service-improvement-te
 
 ```
 
-Sidebar {.sidebar}
-=====================================
+Inputs {.sidebar}
+-------------------------------------
 
 ```{r, echo = FALSE}
 selectInput("select_products", 
@@ -94,31 +96,29 @@ selectInput("select_products",
                 multiple = TRUE)
 ```
 
-Monthly downloads
-=====================================
 
 ```{r, echo = FALSE}
-selected <- reactive({
-    selected <- data %>% 
+dl_selected <- reactive({
+    dl_selected <- downloads_data %>% 
             filter(str_detect(file, regex(str_c(input$select_products, collapse = "|"), ignore_case = TRUE)))
     
     product_list_tbl <- tibble(product = names(product_list), regex = product_list)
 
-    selected %>% 
+    dl_selected %>% 
         regex_inner_join(product_list_tbl,
                          by = c(file = "regex")) %>% 
         select(-regex) %>% 
         mutate(product = as_factor(product))
     })
 
-monthly <- reactive({
-    selected() %>% 
+dl_monthly <- reactive({
+    dl_selected() %>% 
         group_by(product, year_month) %>% 
         summarise(monthly_downloads = sum(downloads))
 })
 ```
 
-Column {data-width = 600}
+Row {.tabset .tabset-fade}
 -------------------------------------
 
 ### Graph of monthly downloads
@@ -127,7 +127,7 @@ Column {data-width = 600}
 renderPlotly({
     req(input$select_products)
     
-    fig <- ggplot(data = monthly(),
+    fig <- ggplot(data = dl_monthly(),
                   aes(x = year_month, y = monthly_downloads, colour = product)) +
         geom_line() +
         labs(x = "Month",
@@ -142,13 +142,10 @@ renderPlotly({
 })
 ```
 
-Column {data-width=400} 
--------------------------------------
-
-### Table with monthly downloads
+### Table
 
 ```{r, echo = FALSE}
-renderDT(monthly(),
+renderDT(dl_monthly(),
          filter = "top",
          extensions = c("Scroller", "Buttons"),
          options = list(
@@ -161,9 +158,8 @@ renderDT(monthly(),
          rownames = FALSE) 
 ```
 
-
-Page downloaded from
-=====================================
+Row {.tabset .tabset-fade}
+-------------------------------------
 
 ### Which pages are the products most frequently downloaded from?
 
@@ -171,7 +167,7 @@ All pages contributing less than 5% to the monthly download of a product are col
 
 ```{r, include = FALSE}
 download_page <- reactive({
-    selected() %>%
+    dl_selected() %>%
         group_by(product) %>% 
         mutate(downloaded_from = fct_lump_prop(page_path, w = downloads, prop = 0.05)) %>% 
         ungroup()
@@ -220,14 +216,13 @@ renderReactable({
 
 ```
 
-
-Raw data
-=====================================
+Row
+-------------------------------------
 
 ### Raw downloads data showing page downloaded from and file download URL
 
 ```{r, echo = FALSE}
-renderDT(selected() %>% select(product, everything()),
+renderDT(dl_selected() %>% select(product, everything()),
          filter = "top",
          extensions = c("Scroller", "Buttons"),
          options = list(
