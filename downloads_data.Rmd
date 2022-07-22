@@ -3,10 +3,10 @@ title: "Product review: Google Analytics"
 author: "Impact team"
 date: "`r Sys.Date()`"
 output: 
-    flexdashboard::flex_dashboard:
-        source_code: embed
-        vertical_layout: scroll
-        orientation: rows
+    html_document:
+        toc: TRUE
+        toc_float: TRUE
+        code_folding: "hide"
 runtime: shiny
 ---
 
@@ -84,16 +84,18 @@ dl_product_list <- list("QSSIT" = "((QS)|(quality-standard))-service-improvement
                      "Resource impact report" = "resource-impact-report"
 )
 
+views_product_list <- list("Resource impact report" = "resource-impact-report"
+)
+
 ```
 
 Downloads
-=====================================
 
-Inputs {.sidebar}
--------------------------------------
+
+Inputs
 
 ```{r, echo = FALSE}
-selectInput("select_products", 
+selectInput("dl_select_products", 
                 "Select products to view downloads data:",
                 choices = dl_product_list,
                 multiple = TRUE)
@@ -121,14 +123,14 @@ dl_monthly <- reactive({
 })
 ```
 
-Row {.tabset .tabset-fade}
--------------------------------------
+Row 
+
 
 ### How much are the products being downloaded across all NICE webpages, monthly?
 
 ```{r, echo = FALSE}
 renderPlotly({
-    req(input$select_products)
+    req(input$dl_select_products)
     
     fig <- ggplot(data = dl_monthly(),
                   aes(x = year_month, y = monthly_downloads, colour = product)) +
@@ -161,8 +163,7 @@ renderDT(dl_monthly(),
          rownames = FALSE) 
 ```
 
-Row {.tabset .tabset-fade}
--------------------------------------
+Row 
 
 ### Which pages are the products most frequently downloaded from?
 
@@ -181,7 +182,7 @@ download_page <- reactive({
 
 ```{r, echo = FALSE}
 renderPlotly({
-    req(input$select_products)
+    req(input$dl_select_products)
     
     source_fig <- download_page() %>%
         group_by(product, year_month, downloaded_from) %>%
@@ -225,14 +226,15 @@ renderReactable({
 
 ```{r, echo = FALSE}
 renderPlotly({
-    req(input$select_products)
+    req(input$dl_select_products)
     
     highlight_line <- highlight_key(dl_selected(), ~page_path)
     
     page_line <- highlight_line %>%
         ggplot(aes(x = year_month,
                    y = downloads,
-                   group = page_path)) +
+                   group = page_path,
+                   colour = product)) +
         geom_line() +
         labs(x = "Month",
              y = "Downloads") +
@@ -250,8 +252,7 @@ renderPlotly({
 ```
 
 
-Row
--------------------------------------
+
 
 ### Raw downloads data showing page downloaded from and file download URL
 
@@ -269,11 +270,7 @@ renderDT(dl_selected() %>% select(product, everything()),
          rownames = FALSE) 
 ```
 
-Views
-=====================================
 
-Inputs {.sidebar}
--------------------------------------
 
 ```{r, echo = FALSE}
 selectInput("views_select_products", 
@@ -284,8 +281,8 @@ selectInput("views_select_products",
 
 
 ```{r, echo = FALSE}
-v_selected <- reactive({
-    v_selected <- views_data %>% 
+views_selected <- reactive({
+    views_selected <- views_data %>% 
             filter(str_detect(file, regex(str_c(input$views_select_products, collapse = "|"), ignore_case = TRUE)))
     
     views_product_list_tbl <- tibble(product = names(views_product_list), regex = views_product_list)
