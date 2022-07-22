@@ -45,16 +45,16 @@ views_filename <- map(month_list, ~ sprintf("./download_analytics/HSC dashboard 
 
 ```{r, include = FALSE}
 # Import data
-import_data <- function(filenames) {
+import_data <- function(filenames, col_string) {
     filenames %>%
         set_names() %>%
-        map_dfr(read_csv, col_types = "ccd", .id = "filename")
+        map_dfr(read_csv, col_types = col_string, .id = "filename")
 }
 
 
-downloads_data <- import_data(downloads_filename)
+downloads_data <- import_data(downloads_filename, "ccd")
 
-views_data <- import_data(views_filename)
+views_data <- import_data(views_filename, "cd")
 
 ```
 
@@ -84,7 +84,9 @@ dl_product_list <- list("QSSIT" = "((QS)|(quality-standard))-service-improvement
                      "Resource impact report" = "resource-impact-report"
 )
 
-views_product_list <- list("Resource impact report" = "resource-impact-report"
+views_product_list <- list("Resource impact report" = "resource-impact-report",
+                           "Resource impact statement" = "resource-impact-statement",
+                           "Resources for local partnerships" = "(stpsupport.nice.org.uk)|(indepth.nice.org.uk/respiratory)"
 )
 
 ```
@@ -345,13 +347,13 @@ selectInput("views_select_products",
 ```{r, echo = FALSE}
 views_selected <- reactive({
     views_selected <- views_data %>% 
-            filter(str_detect(file, regex(str_c(input$views_select_products, collapse = "|"), ignore_case = TRUE)))
+            filter(str_detect(page_path, regex(str_c(input$views_select_products, collapse = "|"), ignore_case = TRUE)))
     
     views_product_list_tbl <- tibble(product = names(views_product_list), regex = views_product_list)
 
     views_selected %>% 
         regex_inner_join(views_product_list_tbl,
-                         by = c(file = "regex")) %>% 
+                         by = c(page_path = "regex")) %>% 
         select(-regex) %>% 
         mutate(product = as_factor(product))
     })
@@ -359,6 +361,46 @@ views_selected <- reactive({
 views_monthly <- reactive({
     views_selected() %>% 
         group_by(product, year_month) %>% 
-        summarise(monthly_downloads = sum(downloads))
+        summarise(monthly_views = sum(views))
 })
+```
+
+Row {.tabset .tabset-fade}
+-------------------------------------
+
+### How much are the products being viewed across all NICE webpages, monthly?
+
+```{r, echo = FALSE}
+renderPlotly({
+    req(input$views_select_products)
+    
+    monthly_views_fig <- ggplot(data = views_monthly(),
+                  aes(x = year_month, y = monthly_views, colour = product)) +
+        geom_line() +
+        labs(x = "Month",
+             y = "Views") +
+        scale_y_continuous(expand = c(0,0),
+                           limits = c(0, NA)) +
+        scale_x_date(date_breaks = "6 months",
+                     date_labels = "%b %Y")
+
+
+    ggplotly(monthly_views_fig)
+})
+```
+
+### Table
+
+```{r, echo = FALSE}
+renderDT(views_monthly(),
+         filter = "top",
+         extensions = c("Scroller", "Buttons"),
+         options = list(
+             scrollY = 400,
+             scrollX = TRUE,
+             scroller = TRUE,
+             dom = "Bfrtip",
+             buttons = c('copy', 'csv', 'excel')
+             ),
+         rownames = FALSE) 
 ```
