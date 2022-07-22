@@ -77,7 +77,7 @@ views_data <- extract_date(views_data, "(?<=Table_views_)\\d{4}-\\d{2}(?=.csv)")
 
 ```{r, include = FALSE}
 # List of products with filename regex
-product_list <- list("QSSIT" = "((QS)|(quality-standard))-service-improvement-template",
+dl_product_list <- list("QSSIT" = "((QS)|(quality-standard))-service-improvement-template",
                       "Baseline assessment tool" = "baseline-assessment-tool",
                       "Resource planner" = "resource-planner",
                      "Resource impact template" = "resource-impact-template",
@@ -94,8 +94,8 @@ Inputs {.sidebar}
 
 ```{r, echo = FALSE}
 selectInput("select_products", 
-                "Select products:",
-                choices = product_list,
+                "Select products to view downloads data:",
+                choices = dl_product_list,
                 multiple = TRUE)
 ```
 
@@ -103,12 +103,12 @@ selectInput("select_products",
 ```{r, echo = FALSE}
 dl_selected <- reactive({
     dl_selected <- downloads_data %>% 
-            filter(str_detect(file, regex(str_c(input$select_products, collapse = "|"), ignore_case = TRUE)))
+            filter(str_detect(file, regex(str_c(input$dl_select_products, collapse = "|"), ignore_case = TRUE)))
     
-    product_list_tbl <- tibble(product = names(product_list), regex = product_list)
+    dl_product_list_tbl <- tibble(product = names(dl_product_list), regex = dl_product_list)
 
     dl_selected %>% 
-        regex_inner_join(product_list_tbl,
+        regex_inner_join(dl_product_list_tbl,
                          by = c(file = "regex")) %>% 
         select(-regex) %>% 
         mutate(product = as_factor(product))
@@ -124,7 +124,7 @@ dl_monthly <- reactive({
 Row {.tabset .tabset-fade}
 -------------------------------------
 
-### Graph of monthly downloads
+### How much are the products being downloaded across all NICE webpages, monthly?
 
 ```{r, echo = FALSE}
 renderPlotly({
@@ -167,6 +167,8 @@ Row {.tabset .tabset-fade}
 ### Which pages are the products most frequently downloaded from?
 
 All pages contributing less than 5% to the monthly download of a product are collapsed into "Other".
+
+Note, while the QSSIT and resource planner are the same product regardless of which webpage it exists on, the BATs, resource impact templates and resource impact reports are specific to the guideline they belong to.
 
 ```{r, include = FALSE}
 download_page <- reactive({
@@ -225,12 +227,12 @@ renderReactable({
 renderPlotly({
     req(input$select_products)
     
-    page_scatter <- dl_selected() %>%
+    highlight_line <- highlight_key(dl_selected(), ~page_path)
+    
+    page_line <- highlight_line %>%
         ggplot(aes(x = year_month,
                    y = downloads,
-                   group = page_path,
-                   colour = product)) +
-        geom_point() +
+                   group = page_path)) +
         geom_line() +
         labs(x = "Month",
              y = "Downloads") +
@@ -240,7 +242,10 @@ renderPlotly({
                      date_labels = "%b %Y")
 
 
-    ggplotly(page_scatter)
+    ggplotly(page_line, tool_tip = "page_path") %>% 
+        highlight(on = "plotly_hover",
+                  off = "plotly_doubleclick",
+                  color = "red")
 })
 ```
 
@@ -266,3 +271,35 @@ renderDT(dl_selected() %>% select(product, everything()),
 
 Views
 =====================================
+
+Inputs {.sidebar}
+-------------------------------------
+
+```{r, echo = FALSE}
+selectInput("views_select_products", 
+                "Select products to view page views for:",
+                choices = views_product_list,
+                multiple = TRUE)
+```
+
+
+```{r, echo = FALSE}
+v_selected <- reactive({
+    v_selected <- views_data %>% 
+            filter(str_detect(file, regex(str_c(input$views_select_products, collapse = "|"), ignore_case = TRUE)))
+    
+    views_product_list_tbl <- tibble(product = names(views_product_list), regex = views_product_list)
+
+    views_selected %>% 
+        regex_inner_join(views_product_list_tbl,
+                         by = c(file = "regex")) %>% 
+        select(-regex) %>% 
+        mutate(product = as_factor(product))
+    })
+
+views_monthly <- reactive({
+    views_selected() %>% 
+        group_by(product, year_month) %>% 
+        summarise(monthly_downloads = sum(downloads))
+})
+```
