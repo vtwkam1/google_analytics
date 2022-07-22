@@ -3,10 +3,10 @@ title: "Product review: Google Analytics"
 author: "Impact team"
 date: "`r Sys.Date()`"
 output: 
-    html_document:
-        toc: TRUE
-        toc_float: TRUE
-        code_folding: "hide"
+    flexdashboard::flex_dashboard:
+        source_code: embed
+        vertical_layout: scroll
+        orientation: rows
 runtime: shiny
 ---
 
@@ -77,30 +77,25 @@ views_data <- extract_date(views_data, "(?<=Table_views_)\\d{4}-\\d{2}(?=.csv)")
 
 ```{r, include = FALSE}
 # List of products with filename regex
-product_list <- list("QSSIT" = "((QS)|(quality-standard))-service-improvement-template",
+dl_product_list <- list("QSSIT" = "((QS)|(quality-standard))-service-improvement-template",
                       "Baseline assessment tool" = "baseline-assessment-tool",
                       "Resource planner" = "resource-planner",
                      "Resource impact template" = "resource-impact-template",
                      "Resource impact report" = "resource-impact-report"
 )
 
-views_product_list <- list("Resource impact report" = "resource-impact-report"
-)
-
 ```
 
-# Downloads
+Downloads
+=====================================
+
+Inputs {.sidebar}
+-------------------------------------
 
 ```{r, echo = FALSE}
-<<<<<<< HEAD
-selectInput("dl_select_products", 
+selectInput("select_products", 
                 "Select products to view downloads data:",
                 choices = dl_product_list,
-=======
-selectInput("select_products", 
-                "Select products:",
-                choices = product_list,
->>>>>>> parent of 459db39 (Hover and highlight lines)
                 multiple = TRUE)
 ```
 
@@ -108,12 +103,12 @@ selectInput("select_products",
 ```{r, echo = FALSE}
 dl_selected <- reactive({
     dl_selected <- downloads_data %>% 
-            filter(str_detect(file, regex(str_c(input$select_products, collapse = "|"), ignore_case = TRUE)))
+            filter(str_detect(file, regex(str_c(input$dl_select_products, collapse = "|"), ignore_case = TRUE)))
     
-    product_list_tbl <- tibble(product = names(product_list), regex = product_list)
+    dl_product_list_tbl <- tibble(product = names(dl_product_list), regex = dl_product_list)
 
     dl_selected %>% 
-        regex_inner_join(product_list_tbl,
+        regex_inner_join(dl_product_list_tbl,
                          by = c(file = "regex")) %>% 
         select(-regex) %>% 
         mutate(product = as_factor(product))
@@ -126,17 +121,14 @@ dl_monthly <- reactive({
 })
 ```
 
-## How much are the products being downloaded across all NICE webpages, monthly? {.tabset}
+Row {.tabset .tabset-fade}
+-------------------------------------
 
-<<<<<<< HEAD
-### Graph 
-=======
-### Graph of monthly downloads
->>>>>>> parent of 459db39 (Hover and highlight lines)
+### How much are the products being downloaded across all NICE webpages, monthly?
 
 ```{r, echo = FALSE}
 renderPlotly({
-    req(input$dl_select_products)
+    req(input$select_products)
     
     fig <- ggplot(data = dl_monthly(),
                   aes(x = year_month, y = monthly_downloads, colour = product)) +
@@ -169,9 +161,14 @@ renderDT(dl_monthly(),
          rownames = FALSE) 
 ```
 
-## Which pages are the products most frequently downloaded from? {.tabset}
+Row {.tabset .tabset-fade}
+-------------------------------------
+
+### Which pages are the products most frequently downloaded from?
 
 All pages contributing less than 5% to the monthly download of a product are collapsed into "Other".
+
+Note, while the QSSIT and resource planner are the same product regardless of which webpage it exists on, the BATs, resource impact templates and resource impact reports are specific to the guideline they belong to.
 
 ```{r, include = FALSE}
 download_page <- reactive({
@@ -182,11 +179,9 @@ download_page <- reactive({
 })
 ```
 
-### Graph 
-
 ```{r, echo = FALSE}
 renderPlotly({
-    req(input$dl_select_products)
+    req(input$select_products)
     
     source_fig <- download_page() %>%
         group_by(product, year_month, downloaded_from) %>%
@@ -226,21 +221,18 @@ renderReactable({
 
 ```
 
-## Individual pages
+### Individual pages
 
 ```{r, echo = FALSE}
 renderPlotly({
-    req(input$dl_select_products)
+    req(input$select_products)
     
-    page_scatter <- dl_selected() %>%
+    highlight_line <- highlight_key(dl_selected(), ~page_path)
+    
+    page_line <- highlight_line %>%
         ggplot(aes(x = year_month,
                    y = downloads,
-                   group = page_path,
-                   colour = product)) +
-<<<<<<< HEAD
-=======
-        geom_point() +
->>>>>>> parent of 459db39 (Hover and highlight lines)
+                   group = page_path)) +
         geom_line() +
         labs(x = "Month",
              y = "Downloads") +
@@ -250,14 +242,18 @@ renderPlotly({
                      date_labels = "%b %Y")
 
 
-    ggplotly(page_scatter)
+    ggplotly(page_line, tool_tip = "page_path") %>% 
+        highlight(on = "plotly_hover",
+                  off = "plotly_doubleclick",
+                  color = "red")
 })
 ```
 
 
+Row
+-------------------------------------
 
-
-## Raw downloads data showing page downloaded from and file download URL
+### Raw downloads data showing page downloaded from and file download URL
 
 ```{r, echo = FALSE}
 renderDT(dl_selected() %>% select(product, everything()),
@@ -273,8 +269,11 @@ renderDT(dl_selected() %>% select(product, everything()),
          rownames = FALSE) 
 ```
 
-<<<<<<< HEAD
-# Views
+Views
+=====================================
+
+Inputs {.sidebar}
+-------------------------------------
 
 ```{r, echo = FALSE}
 selectInput("views_select_products", 
@@ -285,8 +284,8 @@ selectInput("views_select_products",
 
 
 ```{r, echo = FALSE}
-views_selected <- reactive({
-    views_selected <- views_data %>% 
+v_selected <- reactive({
+    v_selected <- views_data %>% 
             filter(str_detect(file, regex(str_c(input$views_select_products, collapse = "|"), ignore_case = TRUE)))
     
     views_product_list_tbl <- tibble(product = names(views_product_list), regex = views_product_list)
@@ -304,7 +303,3 @@ views_monthly <- reactive({
         summarise(monthly_downloads = sum(downloads))
 })
 ```
-=======
-Views
-=====================================
->>>>>>> parent of 459db39 (Hover and highlight lines)
