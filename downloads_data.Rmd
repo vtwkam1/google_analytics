@@ -89,10 +89,7 @@ views_product_list <- list("Resource impact report" = "resource-impact-report"
 
 ```
 
-Downloads
-
-
-Inputs
+# Downloads
 
 ```{r, echo = FALSE}
 selectInput("dl_select_products", 
@@ -123,10 +120,9 @@ dl_monthly <- reactive({
 })
 ```
 
-Row 
+## How much are the products being downloaded across all NICE webpages, monthly? {.tabset}
 
-
-### How much are the products being downloaded across all NICE webpages, monthly?
+### Graph 
 
 ```{r, echo = FALSE}
 renderPlotly({
@@ -163,9 +159,7 @@ renderDT(dl_monthly(),
          rownames = FALSE) 
 ```
 
-Row 
-
-### Which pages are the products most frequently downloaded from?
+## Which pages are the products most frequently downloaded from? {.tabset}
 
 All pages contributing less than 5% to the monthly download of a product are collapsed into "Other".
 
@@ -179,6 +173,8 @@ download_page <- reactive({
         ungroup()
 })
 ```
+
+### Graph 
 
 ```{r, echo = FALSE}
 renderPlotly({
@@ -222,7 +218,7 @@ renderReactable({
 
 ```
 
-### Individual pages
+## Individual pages
 
 ```{r, echo = FALSE}
 renderPlotly({
@@ -254,7 +250,7 @@ renderPlotly({
 
 
 
-### Raw downloads data showing page downloaded from and file download URL
+## Raw downloads data showing page downloaded from and file download URL
 
 ```{r, echo = FALSE}
 renderDT(dl_selected() %>% select(product, everything()),
@@ -270,7 +266,7 @@ renderDT(dl_selected() %>% select(product, everything()),
          rownames = FALSE) 
 ```
 
-
+# Views
 
 ```{r, echo = FALSE}
 selectInput("views_select_products", 
