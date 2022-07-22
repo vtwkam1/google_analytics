@@ -104,6 +104,8 @@ selectInput("dl_select_products",
 
 Note, while the QSSIT and resource planner are the same product regardless of which webpage it exists on, the BATs, resource impact templates and resource impact reports are specific to the guideline they belong to.
 
+When thinking about resource use, note that while there may be considerable downloads of e.g. the resource impact reports when the downloads across all the reports are combined, each individual report may only be getting a handful of downloads monthly, despite requiring a lot of resource to produce, as they are guideline/topic-specific.
+
 ```{r, echo = FALSE}
 dl_selected <- reactive({
     dl_selected <- downloads_data %>% 
@@ -170,8 +172,6 @@ Row {.tabset .tabset-fade}
 
 ### Which pages are the products most frequently downloaded from?
 
-All pages contributing less than 5% to the monthly download of a product are collapsed into "Other".
-
 ```{r, include = FALSE}
 download_page <- reactive({
     dl_selected() %>%
@@ -180,6 +180,38 @@ download_page <- reactive({
         ungroup()
 })
 ```
+
+
+```{r, echo = FALSE}
+renderPlotly({
+    req(input$dl_select_products)
+    
+    highlight_line <- highlight_key(dl_selected(), ~page_path)
+    
+    page_line <- highlight_line %>%
+        ggplot(aes(x = year_month,
+                   y = downloads,
+                   group = page_path,
+                   colour = product)) +
+        geom_line() +
+        labs(x = "Month",
+             y = "Downloads") +
+        scale_y_continuous(expand = c(0,0),
+                           limits = c(0, NA)) +
+        scale_x_date(date_breaks = "6 months",
+                     date_labels = "%b %Y")
+
+
+    ggplotly(page_line, tool_tip = "page_path") %>% 
+        highlight(on = "plotly_hover",
+                  off = "plotly_doubleclick",
+                  color = "red")
+})
+```
+
+### Top pages
+
+All pages contributing less than 5% to the monthly download of a product are collapsed into "Other".
 
 ```{r, echo = FALSE}
 renderPlotly({
@@ -223,33 +255,58 @@ renderReactable({
 
 ```
 
-### Individual pages
+### Average monthly downloads per page
+Relevant for the baseline assessment tool, resource impact template and resource impact report only.
+
+```{r, include = FALSE}
+average_download <- reactive({
+    dl_selected() %>%
+        group_by(product, year_month) %>% 
+        summarise(average_monthly_downloads = mean(downloads) %>% round(1)) %>% 
+        filter(product %in% c("Baseline assessment tool", 
+                              "Resource impact template", 
+                              "Resource impact report"))
+})
+```
+
 
 ```{r, echo = FALSE}
 renderPlotly({
-    req(input$select_products)
+    req(input$dl_select_products)
     
-    highlight_line <- highlight_key(dl_selected(), ~page_path)
-    
-    page_line <- highlight_line %>%
+    average_fig <- average_download() %>%
         ggplot(aes(x = year_month,
-                   y = downloads,
-                   group = page_path)) +
+                   y = average_monthly_downloads, 
+                   colour = product)) +
         geom_line() +
         labs(x = "Month",
-             y = "Downloads") +
+             y = "Average downloads") +
         scale_y_continuous(expand = c(0,0),
                            limits = c(0, NA)) +
         scale_x_date(date_breaks = "6 months",
                      date_labels = "%b %Y")
 
 
-    ggplotly(page_line, tool_tip = "page_path") %>% 
-        highlight(on = "plotly_hover",
-                  off = "plotly_doubleclick",
-                  color = "red")
+    ggplotly(average_fig)
 })
+
 ```
+
+### Table (for averages)
+```{r, echo = FALSE}
+renderDT(average_download(),
+         filter = "top",
+         extensions = c("Scroller", "Buttons"),
+         options = list(
+             scrollY = 400,
+             scrollX = TRUE,
+             scroller = TRUE,
+             dom = "Bfrtip",
+             buttons = c('copy', 'csv', 'excel')
+             ),
+         rownames = FALSE) 
+```
+
 
 
 Row
