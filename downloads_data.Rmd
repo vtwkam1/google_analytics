@@ -84,6 +84,9 @@ dl_product_list <- list("QSSIT" = "((QS)|(quality-standard))-service-improvement
                      "Resource impact report" = "resource-impact-report"
 )
 
+views_product_list <- list("Resource impact report" = "resource-impact-report"
+)
+
 ```
 
 Downloads
@@ -93,12 +96,13 @@ Inputs {.sidebar}
 -------------------------------------
 
 ```{r, echo = FALSE}
-selectInput("select_products", 
+selectInput("dl_select_products", 
                 "Select products to view downloads data:",
                 choices = dl_product_list,
                 multiple = TRUE)
 ```
 
+Note, while the QSSIT and resource planner are the same product regardless of which webpage it exists on, the BATs, resource impact templates and resource impact reports are specific to the guideline they belong to.
 
 ```{r, echo = FALSE}
 dl_selected <- reactive({
@@ -128,7 +132,7 @@ Row {.tabset .tabset-fade}
 
 ```{r, echo = FALSE}
 renderPlotly({
-    req(input$select_products)
+    req(input$dl_select_products)
     
     fig <- ggplot(data = dl_monthly(),
                   aes(x = year_month, y = monthly_downloads, colour = product)) +
@@ -168,8 +172,6 @@ Row {.tabset .tabset-fade}
 
 All pages contributing less than 5% to the monthly download of a product are collapsed into "Other".
 
-Note, while the QSSIT and resource planner are the same product regardless of which webpage it exists on, the BATs, resource impact templates and resource impact reports are specific to the guideline they belong to.
-
 ```{r, include = FALSE}
 download_page <- reactive({
     dl_selected() %>%
@@ -181,7 +183,7 @@ download_page <- reactive({
 
 ```{r, echo = FALSE}
 renderPlotly({
-    req(input$select_products)
+    req(input$dl_select_products)
     
     source_fig <- download_page() %>%
         group_by(product, year_month, downloaded_from) %>%
@@ -284,8 +286,8 @@ selectInput("views_select_products",
 
 
 ```{r, echo = FALSE}
-v_selected <- reactive({
-    v_selected <- views_data %>% 
+views_selected <- reactive({
+    views_selected <- views_data %>% 
             filter(str_detect(file, regex(str_c(input$views_select_products, collapse = "|"), ignore_case = TRUE)))
     
     views_product_list_tbl <- tibble(product = names(views_product_list), regex = views_product_list)
