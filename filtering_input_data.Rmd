@@ -3,6 +3,38 @@ title: "Preprocessing"
 author: "Impact team"
 date: "`r Sys.Date()`"
 output: html_document
+params:
+    project_id:
+        label: "Project name"
+        value: "impact_reports"
+        input: text
+    start_month:
+        label: "Starting month"
+        value: "2019-06"
+        input: text
+    end_month:
+        label: "Ending month"
+        value: "2022-09"
+        input: text
+    downloads_data:
+        label: "Extract downloads data:"
+        value: TRUE
+    downloads_column:
+        label: "Which column to look at?"
+        value: page_path
+        input: select
+        choices: [page_path, file]
+    downloads_regex:
+        label: "Regex for URLs of download pages"
+        value: "impact-of-(our-)?guidance"
+        input: text
+    views_data:
+        label: "Extract views data:"
+        value: TRUE
+    views_regex:
+        label: "Regex for URLs of views pages"
+        value: "impact-of-(our-)?guidance"
+        input: text
 ---
 
 ```{r setup, include=FALSE}
@@ -15,8 +47,8 @@ library(lubridate)
 
 ```{r, include = FALSE}
 # Specify time period GA data is available for
-month_start <- ym("2019-06")
-month_end <- ym("2022-06")
+month_start <- ym(params$start_month)
+month_end <- ym(params$end_month)
 ```
 
 
@@ -28,9 +60,13 @@ months_diff <- floor((month_start %--% month_end) / dmonths(1))
 month_list <- month_start + months(0:months_diff)
 
 # Generate file names using months specified above
-downloads_filename <- map(month_list, ~ sprintf("./download_analytics/HSC dashboard - Engagement and implementation_All webpages_ links and downloads_Table_%s.csv", as.character(.x) %>% str_remove("-01$")))
+if (params$downloads_data) {
+    downloads_filename <- map(month_list, ~ sprintf("./download_analytics/HSC dashboard - Engagement and implementation_All webpages_ links and downloads_Table_%s.csv", as.character(.x) %>% str_remove("-01$")))
+}
 
-views_filename <- map(month_list, ~ sprintf("./download_analytics/HSC dashboard - Engagement and implementation_All webpages_ links and downloads_Table_views_%s.csv", as.character(.x) %>% str_remove("-01$")))
+if (params$views_data) {
+    views_filename <- map(month_list, ~ sprintf("./download_analytics/HSC dashboard - Engagement and implementation_All webpages_ links and downloads_Table_views_%s.csv", as.character(.x) %>% str_remove("-01$")))
+}
 ```
 
 
@@ -42,11 +78,13 @@ import_data <- function(filenames, col_string) {
         map_dfr(read_csv, col_types = col_string, .id = "filename")
 }
 
+if (params$downloads_data) {
+    downloads_data <- import_data(downloads_filename, "ccd")
+}
 
-downloads_data <- import_data(downloads_filename, "ccd")
-
-views_data <- import_data(views_filename, "cd")
-
+if (params$views_data) {
+    views_data <- import_data(views_filename, "cd")
+}
 ```
 
 
@@ -60,40 +98,34 @@ extract_date <- function(table, date_regex) {
         select(year_month, everything())
 }
 
-downloads_data <- extract_date(downloads_data, "(?<=Table_)\\d{4}-\\d{2}(?=.csv)")
+if (params$downloads_data) {
+    downloads_data <- extract_date(downloads_data, "(?<=Table_)\\d{4}-\\d{2}(?=.csv)")
+}
 
-views_data <- extract_date(views_data, "(?<=Table_views_)\\d{4}-\\d{2}(?=.csv)")
-
+if (params$views_data) {
+    views_data <- extract_date(views_data, "(?<=Table_views_)\\d{4}-\\d{2}(?=.csv)")
+}
 ```
+
 
 ```{r, include = FALSE}
-# List of products with filename regex
-dl_product_list <- list("QSSIT" = "((QS)|(quality-standard))-service-improvement-template",
-                      "Baseline assessment tool" = "baseline-assessment-tool",
-                      "Resource planner" = "resource-planner",
-                     "Resource impact template" = "resource-impact-template",
-                     "Resource impact report" = "resource-impact-report"
-)
-
-views_product_list <- list("Resource impact report" = "resource-impact-report",
-                           "Resource impact statement" = "resource-impact-statement",
-                           "Resources for local partnerships" = "(stpsupport.nice.org.uk)|(indepth.nice.org.uk/respiratory)"
-)
-
-```
-
-```{r}
 # Filter for relevant products and save
-downloads_data %>% 
-    filter(str_detect(file, 
-                      regex(str_c(dl_product_list, collapse = "|"), 
-                            ignore_case = TRUE))) %>% 
-    write_csv('./output/downloads_data.csv')
+if (params$downloads_data) {
+    filtered_downloads <- downloads_data %>% 
+        filter(str_detect(!!rlang::sym(params$downloads_column), 
+                          regex(params$downloads_regex, 
+                                ignore_case = TRUE)))
+    
+    write_csv(filtered_downloads, sprintf('./output/%s_downloads_data_%s.csv', params$project_id, Sys.Date()))
+}
 
-views_data %>% 
-    filter(str_detect(page_path, 
-                      regex(str_c(views_product_list, collapse = "|"), 
-                            ignore_case = TRUE))) %>% 
-    write_csv('./output/views_data.csv')
+if (params$views_data) {
+    filtered_views <- views_data %>% 
+        filter(str_detect(page_path, 
+                          regex(params$views_regex, 
+                                ignore_case = TRUE))) 
+    
+    write_csv(filtered_views, sprintf('./output/%s_views_data_%s.csv', params$project_id, Sys.Date()))
+}
 ```
 

@@ -1,0 +1,136 @@
+---
+title: "Impact report downloads"
+author: "Impact team"
+date: "`r Sys.Date()`"
+output: 
+    html_document:
+        toc: TRUE
+        toc_float: TRUE
+        code_folding: "hide"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      message = FALSE,
+                      warning = FALSE)
+
+if (!require(pacman)) {
+    install.packages(pacman)
+}
+pacman::p_load(tidyverse, lubridate, plotly, DT, here, fuzzyjoin)
+
+# Declare location
+here::i_am("impact-reports/impact_report_downloads.Rmd")
+```
+
+```{r, include=FALSE}
+downloads_raw <- read_csv(here("output/impact_reports_downloads_data_2022-10-10.csv"),
+                      col_types = "Dccdd") %>% 
+    mutate(downloads = coalesce(downloads, total_events)) %>% 
+    select(-total_events)
+
+pdf_mapping <- read_csv(here("impact-reports/impact_reports_pdf_mapping.csv"),
+                        col_types = "cc")
+
+published_date <- read_csv(here("impact-reports/impact_reports_date_published.csv"),
+                           col_types = "cD")
+```
+
+```{r, include=FALSE}
+downloads <- downloads_raw %>% 
+    left_join(pdf_mapping,
+              by = c("file" = "pdf")) %>% 
+    left_join(published_date,
+              by = "report")
+```
+
+```{r, include=FALSE}
+# Irrelevant files
+# social-care-map-data.xlsx and NDAU-2016-Report-v1.1-(002).pdf
+downloads %>% 
+    filter(is.na(report)) %>% 
+    distinct(file)
+```
+
+```{r, include=FALSE}
+views_raw <- read_csv(here("output/impact_reports_views_data_2022-10-10.csv"),
+                      col_types = "Dcdd") %>% 
+    mutate(page_views = coalesce(views, page_views)) %>% 
+    select(-views)
+
+pagepath_mapping <- read_csv(here("impact-reports/impact_reports_pagepath_mapping.csv"),
+                             col_types = "cc")
+```
+
+```{r, include=FALSE}
+views <- views_raw %>% 
+    mutate(segment = str_extract(page_path, "(?<=impact-of-(our-)?guidance/).+") %>% str_remove("(\\?|/).*")) %>% 
+    regex_left_join(pagepath_mapping,
+              by = "page_path") %>% 
+    left_join(published_date,
+              by = "report")
+```
+
+```{r, include=FALSE}
+views %>%
+    filter(is.na(report)) %>% 
+    group_by(segment) %>% 
+    summarise(sum_views = sum(page_views))
+```
+
+```{r, include=FALSE}
+# One maternity and neonatal care link not captured
+views %>% 
+    filter(is.na(segment)) %>% 
+    distinct(page_path.x)
+```
+# Downloads
+
+```{r}
+monthly_downloads <- downloads %>% 
+    filter(!is.na(report)) %>% 
+    group_by(year_month, report, date_published) %>% 
+    summarise(total_downloads = sum(downloads))
+
+monthly_downloads %>% 
+    select(-date_published) %>% 
+    datatable(rownames = FALSE,
+              extensions = 'Buttons', 
+              options = list(dom = 'Bfrtip',
+                             buttons = c('copy', 'csv', 'excel')
+                             )
+              )
+```
+```{r}
+monthly_downloads_plot <- monthly_downloads %>% 
+    ggplot(aes(x = year_month, y = total_downloads, colour = report, text = sprintf("Report published: %s", date_published))) +
+    geom_line()
+
+ggplotly(monthly_downloads_plot, tooltip = c("x", "y", "text"))
+```
+# Page views
+
+```{r}
+monthly_views <- views %>% 
+    filter(!is.na(report)) %>% 
+    group_by(year_month, report, date_published) %>% 
+    summarise(total_views = sum(page_views))
+
+monthly_views %>% 
+    select(-date_published) %>% 
+    datatable(rownames = FALSE,
+              extensions = 'Buttons', 
+              options = list(dom = 'Bfrtip',
+                             buttons = c('copy', 'csv', 'excel')
+                             )
+              )
+```
+
+```{r}
+monthly_views_plot <- monthly_views %>% 
+    ggplot(aes(x = year_month, y = total_views, colour = report, text = sprintf("Report published: %s", date_published))) +
+    geom_line()
+
+ggplotly(monthly_views_plot, tooltip = c("x", "y", "text"))
+```
+

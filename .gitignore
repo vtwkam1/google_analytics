@@ -4,3 +4,6 @@
 .Ruserdata
 output/
 download_analytics/
+rsconnect/
+*.html
+*.csv
