@@ -1,30 +1,38 @@
 ---
-title: "Impact report downloads"
+title: "Impact report downloads and page views"
 author: "Impact team"
 date: "`r Sys.Date()`"
 output: 
     html_document:
         toc: TRUE
         toc_float: TRUE
-        code_folding: "hide"
+        code_download: TRUE
+        theme:
+            bg: "#F7F4F1"
+            fg: "#000000"
+            primary: "#228096"
+            secondary: "#00436C"
+            base_font: 
+                google: "Lato"
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE,
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE,
                       message = FALSE,
-                      warning = FALSE)
+                      warning = FALSE,
+                      include = FALSE)
 
 if (!require(pacman)) {
     install.packages(pacman)
 }
-pacman::p_load(tidyverse, lubridate, plotly, DT, here, fuzzyjoin)
+pacman::p_load(tidyverse, lubridate, plotly, reactable, here, fuzzyjoin)
 
 # Declare location
 here::i_am("impact-reports/impact_report_downloads.Rmd")
 ```
 
-```{r, include=FALSE}
-downloads_raw <- read_csv(here("output/impact_reports_downloads_data_2022-10-10.csv"),
+```{r}
+downloads_raw <- read_csv(here("output/impact_reports_downloads_data_2022-10-12.csv"),
                       col_types = "Dccdd") %>% 
     mutate(downloads = coalesce(downloads, total_events)) %>% 
     select(-total_events)
@@ -36,15 +44,16 @@ published_date <- read_csv(here("impact-reports/impact_reports_date_published.cs
                            col_types = "cD")
 ```
 
-```{r, include=FALSE}
+```{r}
 downloads <- downloads_raw %>% 
-    left_join(pdf_mapping,
-              by = c("file" = "pdf")) %>% 
+    regex_left_join(pdf_mapping,
+              by = c("file" = "pdf"),
+              ignore_case = TRUE) %>% 
     left_join(published_date,
               by = "report")
 ```
 
-```{r, include=FALSE}
+```{r}
 # Irrelevant files
 # social-care-map-data.xlsx and NDAU-2016-Report-v1.1-(002).pdf
 downloads %>% 
@@ -52,8 +61,8 @@ downloads %>%
     distinct(file)
 ```
 
-```{r, include=FALSE}
-views_raw <- read_csv(here("output/impact_reports_views_data_2022-10-10.csv"),
+```{r}
+views_raw <- read_csv(here("output/impact_reports_views_data_2022-10-12.csv"),
                       col_types = "Dcdd") %>% 
     mutate(page_views = coalesce(views, page_views)) %>% 
     select(-views)
@@ -62,75 +71,155 @@ pagepath_mapping <- read_csv(here("impact-reports/impact_reports_pagepath_mappin
                              col_types = "cc")
 ```
 
-```{r, include=FALSE}
+```{r}
 views <- views_raw %>% 
     mutate(segment = str_extract(page_path, "(?<=impact-of-(our-)?guidance/).+") %>% str_remove("(\\?|/).*")) %>% 
     regex_left_join(pagepath_mapping,
-              by = "page_path") %>% 
+              by = "page_path",
+              ignore_case = TRUE) %>% 
     left_join(published_date,
               by = "report")
 ```
 
-```{r, include=FALSE}
+```{r}
 views %>%
     filter(is.na(report)) %>% 
     group_by(segment) %>% 
     summarise(sum_views = sum(page_views))
 ```
 
-```{r, include=FALSE}
+```{r}
 # One maternity and neonatal care link not captured
 views %>% 
     filter(is.na(segment)) %>% 
     distinct(page_path.x)
 ```
-# Downloads
+
+# Introduction
+
+This report presents the monthly downloads and page views on the [NICE impact reports](https://www.nice.org.uk/about/what-we-do/into-practice/measuring-the-uptake-of-nice-guidance/impact-of-guidance), using Google Analytics data from the [health and social care (HSC) dashboard](https://datastudio.google.com/u/0/reporting/f35ae256-7912-4f05-8838-79937f289faf/page/p_oqpodkxvuc).
+
+For an unknown reason which still requires clarification from the DIT product development team, the downloads data in the HSC dashboard currently only goes back to August 2019. The data presented here covers June 2019 to September 2022 (June-July 2019 data was previously extracted). This means we cannot understand the pattern of downloads and page views in the first months from publishing for nine impact reports, the earliest which was published in January 2018.
+
+For page view data, this only covers the impact reports published from July 2019 onwards (starting with adult social care), as that is when the reports started to be published as an HTML version alongside the regular PDF.
+
+# Downloads {.tabset}
+
+This section displays the monthly downloads of the impact report PDFs.
+
+Note, for the [impact report on people with a learning disability](https://www.nice.org.uk/about/what-we-do/into-practice/measuring-the-use-of-nice-guidance/impact-of-our-guidance/nice-impact-people-with-a-learning-disability), there is a [full report PDF](https://www.nice.org.uk/Media/Default/About/what-we-do/Into-practice/measuring-uptake/learning-disability-impact-report/Learning%20disability%20impact%20report.pdf) and an [easy read version PDF](https://www.nice.org.uk/Media/Default/About/what-we-do/Into-practice/measuring-uptake/learning-disability-impact-report/impact-report-people-with-a-learning-disability-easy-read-version-accessible.pdf). The downloads shown for this report aggregates the downloads for both of these versions.
 
 ```{r}
 monthly_downloads <- downloads %>% 
     filter(!is.na(report)) %>% 
     group_by(year_month, report, date_published) %>% 
     summarise(total_downloads = sum(downloads))
-
-monthly_downloads %>% 
-    select(-date_published) %>% 
-    datatable(rownames = FALSE,
-              extensions = 'Buttons', 
-              options = list(dom = 'Bfrtip',
-                             buttons = c('copy', 'csv', 'excel')
-                             )
-              )
 ```
-```{r}
+
+## Graph
+
+Double-click on an impact report in the legend to just show the line for that report. Hover over the line to see the month and downloads for that month, as well as the month the report was published.
+
+```{r, include = TRUE}
 monthly_downloads_plot <- monthly_downloads %>% 
     ggplot(aes(x = year_month, y = total_downloads, colour = report, text = sprintf("Report published: %s", date_published))) +
-    geom_line()
+    geom_line() +
+    labs(x = "Month",
+         y = "Downloads",
+         colour = "Impact report")
 
 ggplotly(monthly_downloads_plot, tooltip = c("x", "y", "text"))
 ```
-# Page views
+## Table
+
+```{r, include = TRUE}
+downloads %>% 
+    filter(!is.na(report)) %>% 
+    group_by(year_month, report, page_path) %>% 
+    summarise(total_downloads = sum(downloads)) %>% 
+    reactable(groupBy = c("year_month", "report"),
+              columns = list(
+                  year_month = colDef(name = "Month"),
+                  report = colDef(aggregate = "unique",
+                                  name = "Impact report"),
+                  page_path = colDef(name = "File download URL"),
+                  total_downloads = colDef(aggregate = "sum",
+                                           name = "Downloads")
+              )
+              )
+```
+
+
+# Page views {.tabset}
+
+This section displays the monthly page views of the HTML versions of the impact reports. Note, the reports only started being published with an HTML version from July 2019 onwards.
 
 ```{r}
 monthly_views <- views %>% 
     filter(!is.na(report)) %>% 
     group_by(year_month, report, date_published) %>% 
     summarise(total_views = sum(page_views))
-
-monthly_views %>% 
-    select(-date_published) %>% 
-    datatable(rownames = FALSE,
-              extensions = 'Buttons', 
-              options = list(dom = 'Bfrtip',
-                             buttons = c('copy', 'csv', 'excel')
-                             )
-              )
 ```
 
-```{r}
+## Graph
+
+Double-click on an impact report in the legend to just show the line for that report. Hover over the line to see the month and page views for that month, as well as the month the report was published.
+
+```{r, include = TRUE}
 monthly_views_plot <- monthly_views %>% 
     ggplot(aes(x = year_month, y = total_views, colour = report, text = sprintf("Report published: %s", date_published))) +
-    geom_line()
+    geom_line() +
+    labs(x = "Month",
+         y = "Page views",
+         colour = "Impact report")
 
 ggplotly(monthly_views_plot, tooltip = c("x", "y", "text"))
 ```
 
+## Table
+
+```{r, include = TRUE}
+views %>% 
+    filter(!is.na(report)) %>% 
+    group_by(year_month, report, page_path.x) %>% 
+    summarise(total_views = sum(page_views)) %>% 
+    reactable(groupBy = c("year_month", "report"),
+              columns = list(
+                  year_month = colDef(name = "Month"),
+                  report = colDef(aggregate = "unique",
+                                  name = "Impact report"),
+                  page_path.x = colDef(name = "Page URL"),
+                  total_views = colDef(aggregate = "sum",
+                                           name = "Page views")
+              )
+              )
+```
+
+
+# Methods {.tabset}
+
+Downloads and page views data was exported from the prototype [health and social care (HSC) dashboard](https://datastudio.google.com/u/0/reporting/f35ae256-7912-4f05-8838-79937f289faf/page/p_oqpodkxvuc), which displays Google Analytics data from the NICE website. 
+
+Google Analytics samples a fraction of all web activity. The time periods specified when extracting results were one-month periods, which offers greater accuracy than longer time periods. This was done by manually selecting each month in the date range widget and exporting the 'Pages views' and 'Downloads' tables from the ['All webpages:links and downloads' tab](https://datastudio.google.com/u/0/reporting/f35ae256-7912-4f05-8838-79937f289faf/page/p_ha6m8qvdtc).
+
+The data covered June 2019 to September 2022. Data for June 2019 - June 2022 had already been extracted in a previous project, so only data from July - September 2022 had to be extracted this time round.
+
+It is only possible to filter by page path in the HSC dashboard, and not by file download URL. Exported tables therefore included page views and downloads data from across the whole NICE website, and filtering for impact report rows was done in R.
+
+The relevant links for report PDFs and report HTML pages were mapped to each impact report topic manually. This was done rapidly without an extensive exploration of all the links within the impact reports pages. Some links may therefore have been missed. These mappings were used to identify and label the relevant page views and downloads rows using regular expressions (case-insensitive), allowing for subsequent calculations and plotting of metrics for each impact report.
+
+## Report to PDF download links
+
+```{r, include = TRUE}
+pdf_mapping %>% 
+    rename(pdf_regex = pdf) %>% 
+    reactable()
+```
+
+## Report to HTML links
+
+```{r, include = TRUE}
+pagepath_mapping %>% 
+    rename(page_path_regex = page_path) %>% 
+    reactable()
+```

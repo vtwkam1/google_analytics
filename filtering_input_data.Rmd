@@ -26,7 +26,7 @@ params:
         choices: [page_path, file]
     downloads_regex:
         label: "Regex for URLs of download pages"
-        value: "impact-of-(our-)?guidance"
+        value: "(impact-of-(our-)?guidance)|(niceimpact)"
         input: text
     views_data:
         label: "Extract views data:"
