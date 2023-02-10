@@ -1,0 +1,113 @@
+---
+title: "CG98 treatment threshold graphs page views"
+author: "Impact team"
+date: "`r format(Sys.Date(), format = '%d %B %Y')`"
+output: 
+    html_document:
+        toc: TRUE
+        toc_float: TRUE
+        theme:
+            bg: "#F7F4F1"
+            fg: "#000000"
+            primary: "#228096"
+            secondary: "#00436C"
+            base_font: 
+                google: "Inter"
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      message = FALSE,
+                      warning = FALSE,
+                      include = FALSE)
+
+if (!require(pacman)) {
+    install.packages(pacman)
+}
+pacman::p_load(tidyverse, lubridate, plotly, reactable)
+
+# Declare location
+here::i_am("treatment_threshold_graphs/cg98_treatment_threshold_graphs_webstats.Rmd")
+```
+
+# Introduction
+
+This page presents the monthly page views of the [treatment treshold graphs tool](https://www.nice.org.uk/guidance/cg98/resources/treatment-threshold-graphs-excel-544300525) provided alongside [CG98 Jaundice in newborn babies under 28 days](https://www.nice.org.uk/guidance/cg98/resources) under the 'Tools and resources' tab. It uses Google Analytics (GA) data from the [health and social care (HSC) dashboard](https://datastudio.google.com/u/0/reporting/f35ae256-7912-4f05-8838-79937f289faf/page/p_oqpodkxvuc).
+
+The data covers June 2019 to January 2023.
+
+Although clicking on the "Treatment threshold graphs" link downloads the tool, the link did not feature in the Google Analytics downloads data. It did, however, feature in the page views data so this is presented instead. It is unclear if the page views GA captures is the same as the number of times the link has been clicked to download the tool.
+
+```{r}
+views_raw <- read_csv(here::here("output/treatment-threshold-graphs_views_data_2023-02-10.csv"),
+                      col_types = "Dcdd") %>% 
+    mutate(page_views = coalesce(views, page_views)) %>% 
+    select(-views)
+```
+
+```{r}
+views <- views_raw %>% 
+    group_by(year_month) %>% 
+    summarise(page_views = sum(page_views)) %>% 
+    ungroup()
+```
+
+Relevant page URLs for the treatment threshold graphs were identified by looking for "treatment-threshold-graphs" in the URL. This pulled out more pages than expected. 
+
+The table below shows all the links identified and the total views each link had over the whole period (June 2019 to January 2022). Many had very few views and some links do not work when pasted into a web browser.
+
+```{r, include = TRUE}
+views_raw %>% 
+    group_by(page_path) %>% 
+    summarise(sum_views = sum(page_views)) %>% 
+    arrange(desc(sum_views)) %>% 
+    reactable(height = 500,
+              striped = TRUE,
+              pagination = FALSE,
+              columns = list(
+                  page_path = colDef(name = "Page URL"),
+                  sum_views = colDef(name = "Total views")
+              )
+              )
+```
+
+Note, Google Analytics samples from a website's traffic data to estimate measures like page views and downloads. Also note that a page view is recorded each time a page loads.
+
+# Page views {.tabset}
+
+## Graph
+
+The graph below shows the page views for all the treatment threshold graph links combined per month:
+
+```{r, include = TRUE}
+views %>% 
+    plot_ly(x = ~year_month,
+            y = ~page_views,
+            type = "scatter",
+            mode = "lines",
+            hoverinfo = "text",
+            hovertext = ~paste0(format(year_month, format = "%b %Y"), 
+                                "<br>", "Views: ", page_views)) %>% 
+    layout(xaxis = list(title = list(text = "Month")),
+           yaxis = list(title = list(text = "Page views"))
+           )
+```
+## Table
+
+Table of monthly page views for the treatment threshold graphs. Click on each month to see how many views each link contributed to the monthly total:
+
+```{r, include = TRUE}
+views_raw %>% 
+    reactable(groupBy = "year_month",
+              height = 500,
+              striped = TRUE,
+              pagination = FALSE,
+              columns = list(
+                  year_month = colDef(name = "Month",
+                                      format = colFormat(date = TRUE)),
+                  page_path = colDef(name = "Page URL"),
+                  page_views = colDef(name = "Page views",
+                                      aggregate = "sum")
+              )
+              )
+```
